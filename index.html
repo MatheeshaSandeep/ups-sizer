@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Must UPS Sizer</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <style>
+    :root { --primary: #0ea5e9; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; }
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background-color: var(--bg); color: var(--text); padding-bottom: 40px; }
+    header { background-color: #0f172a; color: white; padding: 20px; text-align: center; position: sticky; top: 0; z-index: 10; }
+    header h1 { margin: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: 0.5px; }
+    .container { padding: 20px; max-width: 600px; margin: 0 auto; }
+    .card { background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    h2 { font-size: 1.1rem; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
+    .input-group { margin-bottom: 15px; }
+    label { display: block; font-size: 0.9rem; font-weight: 500; margin-bottom: 5px; color: #475569; }
+    input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
+    input:focus { outline: none; border-color: var(--primary); }
+    .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .result-box { background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; }
+    .result-box.highlight { background: #e0f2fe; border: 1px solid var(--primary); }
+    .result-value { font-size: 1.5rem; font-weight: bold; color: var(--primary); margin-top: 5px; }
+    .result-label { font-size: 0.8rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Must UPS System Sizer</h1>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <h2>System Requirements</h2>
+      <div class="input-group">
+        <label>Total Load (Watts)</label>
+        <input type="number" id="load" value="675" oninput="calculate()">
+      </div>
+      <div class="input-group">
+        <label>Backup Time (Hours)</label>
+        <input type="number" id="hours" value="3" step="0.5" oninput="calculate()">
+      </div>
+      <div class="results-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+        <div class="input-group">
+          <label>UPS Eff.</label>
+          <input type="number" id="eff" value="0.9" step="0.1" oninput="calculate()">
+        </div>
+        <div class="input-group">
+          <label>Batts in Series</label>
+          <input type="number" id="series" value="12" oninput="calculate()">
+        </div>
+        <div class="input-group">
+          <label>Safety Factor</label>
+          <input type="number" id="factor" value="1.1" step="0.1" oninput="calculate()">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Recommended Battery Configuration</h2>
+      <div class="results-grid">
+        <div class="result-box highlight">
+          <div class="result-label">Battery Size</div>
+          <div class="result-value" id="res-ah">26 Ah</div>
+        </div>
+        <div class="result-box highlight">
+          <div class="result-label">Parallel Strings</div>
+          <div class="result-value" id="res-strings">1</div>
+        </div>
+        <div class="result-box">
+          <div class="result-label">Total Batteries</div>
+          <div class="result-value" id="res-total">12</div>
+        </div>
+        <div class="result-box">
+          <div class="result-label">Est. Budget (LKR)</div>
+          <div class="result-value" id="res-cost">Rs 187,200</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const standardSizes = [7, 9, 12, 18, 26, 40, 65, 100, 120, 150, 200];
+    const costPerAh = 600; // Average wholesale LKR
+
+    function calculate() {
+      const load = parseFloat(document.getElementById('load').value) || 0;
+      const hours = parseFloat(document.getElementById('hours').value) || 0;
+      const eff = parseFloat(document.getElementById('eff').value) || 0.9;
+      const series = parseInt(document.getElementById('series').value) || 12;
+      const factor = parseFloat(document.getElementById('factor').value) || 1.1;
+
+      // Core Math
+      const dcVoltage = series * 12;
+      const adjustedLoad = (load / eff) * factor;
+      const requiredAh = (adjustedLoad * hours) / dcVoltage;
+
+      // Auto Select Logic
+      let strings = 1;
+      let targetAh = requiredAh;
+      
+      if (targetAh > 200) {
+        strings = Math.ceil(targetAh / 200);
+        targetAh = targetAh / strings;
+      }
+
+      let selectedAh = standardSizes.find(size => size >= targetAh) || 200;
+
+      // Calculate Outputs
+      const totalBatteries = series * strings;
+      const estimatedCost = selectedAh * costPerAh * totalBatteries;
+
+      // Update UI
+      document.getElementById('res-ah').innerText = `${selectedAh} Ah`;
+      document.getElementById('res-strings').innerText = strings;
+      document.getElementById('res-total').innerText = totalBatteries;
+      document.getElementById('res-cost').innerText = `Rs ${estimatedCost.toLocaleString()}`;
+    }
+
+    // Register Service Worker for Offline Use
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  </script>
+</body>
+</html>
