@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#0f172a">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    :root { --primary: #0ea5e9; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; }
+    :root { --primary: #0ea5e9; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --accent: #f59e0b; }
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
     body { margin: 0; background-color: var(--bg); color: var(--text); padding-bottom: 40px; }
     header { background-color: #0f172a; color: white; padding: 20px; text-align: center; position: sticky; top: 0; z-index: 10; }
@@ -23,7 +23,9 @@
     .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     .result-box { background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; }
     .result-box.highlight { background: #e0f2fe; border: 1px solid var(--primary); }
+    .result-box.ups-highlight { background: #fef3c7; border: 1px solid var(--accent); grid-column: span 2; }
     .result-value { font-size: 1.5rem; font-weight: bold; color: var(--primary); margin-top: 5px; }
+    .result-box.ups-highlight .result-value { color: #d97706; font-size: 1.8rem; }
     .result-label { font-size: 0.8rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
     .chart-container { position: relative; height: 250px; width: 100%; mt-4; }
   </style>
@@ -45,7 +47,11 @@
         <label>Backup Time (Hours)</label>
         <input type="number" id="hours" value="3" step="0.5" oninput="calculate()">
       </div>
-      <div class="results-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+      <div class="results-grid">
+        <div class="input-group">
+          <label>Power Factor</label>
+          <input type="number" id="pf" value="0.9" step="0.1" oninput="calculate()">
+        </div>
         <div class="input-group">
           <label>UPS Eff.</label>
           <input type="number" id="eff" value="0.9" step="0.1" oninput="calculate()">
@@ -64,6 +70,11 @@
     <div class="card">
       <h2>Recommended Configuration</h2>
       <div class="results-grid">
+        <div class="result-box ups-highlight">
+          <div class="result-label">Minimum Required UPS</div>
+          <div class="result-value" id="res-ups">1 kVA</div>
+        </div>
+        
         <div class="result-box highlight">
           <div class="result-label">Battery Size</div>
           <div class="result-value" id="res-ah">26 Ah</div>
@@ -93,6 +104,7 @@
 
   <script>
     const standardSizes = [7, 9, 12, 18, 26, 40, 65, 100, 120, 150, 200];
+    const standardUpsKva = [1, 2, 3, 5, 6, 10, 15, 20, 30, 40, 60, 80, 100];
     const costPerAh = 600;
     let myChart;
 
@@ -127,10 +139,20 @@
     function calculate() {
       const load = parseFloat(document.getElementById('load').value) || 0;
       const hours = parseFloat(document.getElementById('hours').value) || 0;
+      const pf = parseFloat(document.getElementById('pf').value) || 0.9;
       const eff = parseFloat(document.getElementById('eff').value) || 0.9;
       const series = parseInt(document.getElementById('series').value) || 12;
       const factor = parseFloat(document.getElementById('factor').value) || 1.1;
 
+      // 1. UPS Sizing Logic (Load / PF / 1000 = kVA) + 20% Headroom
+      const rawKva = (load / pf) / 1000;
+      const targetKva = rawKva * 1.2; 
+      let recommendedUps = standardUpsKva.find(size => size >= targetKva) || Math.ceil(targetKva);
+      
+      // Update UPS UI
+      document.getElementById('res-ups').innerText = `${recommendedUps} kVA`;
+
+      // 2. Battery Sizing Logic
       const dcVoltage = series * 12;
       const adjustedLoad = (load / eff) * factor;
       const requiredAh = (adjustedLoad * hours) / dcVoltage;
@@ -144,7 +166,7 @@
       }
       let selectedAh = standardSizes.find(size => size >= targetAh) || 200;
 
-      // Update Text Outputs
+      // Update Battery Outputs
       const totalBatteries = series * strings;
       document.getElementById('res-ah').innerText = `${selectedAh} Ah`;
       document.getElementById('res-strings').innerText = strings;
