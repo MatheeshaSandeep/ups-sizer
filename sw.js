@@ -1,7 +1,9 @@
-const CACHE_NAME = 'ups-sizer-v1';
+const CACHE_NAME = 'ups-sizer-v2';
 const urlsToCache = [
+  './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  'https://cdn.jsdelivr.net/npm/chart.js'
 ];
 
 self.addEventListener('install', event => {
@@ -14,6 +16,9 @@ self.addEventListener('install', event => {
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
-      .then(response => response || fetch(event.request))
+      .then(response => {
+        // Return cached version if found, otherwise fetch from network
+        return response || fetch(event.request);
+      })
   );
 });
