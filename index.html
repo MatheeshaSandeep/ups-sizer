@@ -6,12 +6,13 @@
   <title>Must UPS Sizer</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root { --primary: #0ea5e9; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; }
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
     body { margin: 0; background-color: var(--bg); color: var(--text); padding-bottom: 40px; }
     header { background-color: #0f172a; color: white; padding: 20px; text-align: center; position: sticky; top: 0; z-index: 10; }
-    header h1 { margin: 0; font-size: 1.2rem; font-weight: 600; letter-spacing: 0.5px; }
+    header h1 { margin: 0; font-size: 1.2rem; font-weight: 600; }
     .container { padding: 20px; max-width: 600px; margin: 0 auto; }
     .card { background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 20px; }
     h2 { font-size: 1.1rem; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
@@ -24,6 +25,7 @@
     .result-box.highlight { background: #e0f2fe; border: 1px solid var(--primary); }
     .result-value { font-size: 1.5rem; font-weight: bold; color: var(--primary); margin-top: 5px; }
     .result-label { font-size: 0.8rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
+    .chart-container { position: relative; height: 250px; width: 100%; mt-4; }
   </style>
 </head>
 <body>
@@ -53,14 +55,14 @@
           <input type="number" id="series" value="12" oninput="calculate()">
         </div>
         <div class="input-group">
-          <label>Safety Factor</label>
+          <label>Margin Factor</label>
           <input type="number" id="factor" value="1.1" step="0.1" oninput="calculate()">
         </div>
       </div>
     </div>
 
     <div class="card">
-      <h2>Recommended Battery Configuration</h2>
+      <h2>Recommended Configuration</h2>
       <div class="results-grid">
         <div class="result-box highlight">
           <div class="result-label">Battery Size</div>
@@ -80,11 +82,47 @@
         </div>
       </div>
     </div>
+
+    <div class="card">
+      <h2>Capacity vs. Backup Time</h2>
+      <div class="chart-container">
+        <canvas id="capacityChart"></canvas>
+      </div>
+    </div>
   </div>
 
   <script>
     const standardSizes = [7, 9, 12, 18, 26, 40, 65, 100, 120, 150, 200];
-    const costPerAh = 600; // Average wholesale LKR
+    const costPerAh = 600;
+    let myChart;
+
+    function initChart() {
+      const ctx = document.getElementById('capacityChart').getContext('2d');
+      myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+          datasets: [{
+            label: 'Required Ah',
+            data: [],
+            borderColor: '#0ea5e9',
+            backgroundColor: 'rgba(14, 165, 233, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { title: { display: true, text: 'Hours' } },
+            y: { title: { display: true, text: 'Amp-Hours (Ah)' }, beginAtZero: true }
+          }
+        }
+      });
+    }
 
     function calculate() {
       const load = parseFloat(document.getElementById('load').value) || 0;
@@ -93,7 +131,6 @@
       const series = parseInt(document.getElementById('series').value) || 12;
       const factor = parseFloat(document.getElementById('factor').value) || 1.1;
 
-      // Core Math
       const dcVoltage = series * 12;
       const adjustedLoad = (load / eff) * factor;
       const requiredAh = (adjustedLoad * hours) / dcVoltage;
@@ -101,26 +138,34 @@
       // Auto Select Logic
       let strings = 1;
       let targetAh = requiredAh;
-      
       if (targetAh > 200) {
         strings = Math.ceil(targetAh / 200);
         targetAh = targetAh / strings;
       }
-
       let selectedAh = standardSizes.find(size => size >= targetAh) || 200;
 
-      // Calculate Outputs
+      // Update Text Outputs
       const totalBatteries = series * strings;
-      const estimatedCost = selectedAh * costPerAh * totalBatteries;
-
-      // Update UI
       document.getElementById('res-ah').innerText = `${selectedAh} Ah`;
       document.getElementById('res-strings').innerText = strings;
       document.getElementById('res-total').innerText = totalBatteries;
-      document.getElementById('res-cost').innerText = `Rs ${estimatedCost.toLocaleString()}`;
+      document.getElementById('res-cost').innerText = `Rs ${(selectedAh * costPerAh * totalBatteries).toLocaleString()}`;
+
+      // Update Chart Data (1 to 10 hours)
+      const chartData = [];
+      for(let i = 1; i <= 10; i++) {
+        chartData.push((adjustedLoad * i) / dcVoltage);
+      }
+      myChart.data.datasets[0].data = chartData;
+      myChart.update();
     }
 
-    // Register Service Worker for Offline Use
+    // Initialize everything when the page loads
+    window.onload = () => {
+      initChart();
+      calculate();
+    };
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
