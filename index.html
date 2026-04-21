@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Must UPS Sizer Pro</title>
+  <title>Must UPS Sizer Pro | Matheesha Sandeep</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root { --primary: #0ea5e9; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --accent: #f59e0b; --danger: #ef4444; --success: #10b981; }
     * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-    body { margin: 0; background-color: var(--bg); color: var(--text); padding-bottom: 40px; }
+    body { margin: 0; background-color: var(--bg); color: var(--text); padding-bottom: 20px; }
     header { background-color: #0f172a; color: white; padding: 20px; text-align: center; position: sticky; top: 0; z-index: 10; }
     header h1 { margin: 0; font-size: 1.2rem; font-weight: 600; }
     .container { padding: 20px; max-width: 600px; margin: 0 auto; }
@@ -38,12 +38,16 @@
     .badge.warn { background: #fee2e2; color: #b91c1c; border: 1px solid #f87171; }
 
     .chart-container { position: relative; height: 250px; width: 100%; mt-4; }
+    
+    /* New Custom Footer Styles */
+    footer { text-align: center; margin-top: 30px; font-size: 0.85rem; color: #64748b; line-height: 1.5; }
+    footer span.brand { font-weight: bold; color: #0f172a; }
   </style>
 </head>
 <body>
 
   <header>
-    <h1>UPS System Calculator Pro</h1>
+    <h1>Must UPS System Sizer Pro</h1>
   </header>
 
   <div class="container">
@@ -62,7 +66,7 @@
       <div class="results-grid" style="grid-template-columns: 1fr 1fr;">
         <div class="input-group">
           <label>Batts in Series (DC Bus)</label>
-          <input type="number" id="series" value="12" oninput="calculate()">
+          <input type="number" id="series" value="6" oninput="calculate()">
         </div>
         <div class="input-group">
           <label>Margin Factor</label>
@@ -77,16 +81,16 @@
       <h2>Inverter Setup</h2>
       <div class="results-grid" style="margin-bottom: 0;">
         <div class="result-box ups-highlight">
-          <div class="result-label">Minimum Required UPS</div>
+          <div class="result-label">Recommended UPS Capacity</div>
           <div class="result-value" id="res-ups">1 kVA</div>
         </div>
         <div class="result-box">
           <div class="result-label">DC Voltage</div>
-          <div class="result-value" id="res-dc">144 V</div>
+          <div class="result-value" id="res-dc">72 V</div>
         </div>
         <div class="result-box">
           <div class="result-label">Real Target Ah</div>
-          <div class="result-value" id="res-target">26 Ah</div>
+          <div class="result-value" id="res-target">46.3 Ah</div>
         </div>
       </div>
     </div>
@@ -103,6 +107,13 @@
         <canvas id="capacityChart"></canvas>
       </div>
     </div>
+
+    <footer>
+      &copy; 2026 All rights reserved.<br>
+      <span class="brand">Matheesha Sandeep</span><br>
+      <small>Powered by Gemini</small>
+    </footer>
+
   </div>
 
   <script>
@@ -110,15 +121,14 @@
     const standardUpsKva = [1, 2, 3, 5, 6, 10, 15, 20, 30, 40, 60, 80, 100];
     let myChart;
 
-    // Real-world discharge curve approximation (Peukert effect)
     function getDischargeEfficiency(hours) {
-      if (hours <= 0.5) return 0.50; // 50% capacity usable at 30 min rapid discharge
+      if (hours <= 0.5) return 0.50; 
       if (hours <= 1) return 0.60;   
       if (hours <= 2) return 0.70;
       if (hours <= 3) return 0.75;
       if (hours <= 5) return 0.85;
       if (hours <= 8) return 0.95;
-      return 1.0;                    // 100% capacity available at 10+ hours
+      return 1.0;                    
     }
 
     function initChart() {
@@ -158,30 +168,25 @@
       const pf = parseFloat(document.getElementById('pf').value) || 0.9;
       const eff = parseFloat(document.getElementById('eff').value) || 0.9;
 
-      // 1. Auto UPS Sizing
       const rawKva = (load / pf) / 1000;
       const targetKva = rawKva * 1.2; 
       let recommendedUps = standardUpsKva.find(size => size >= targetKva) || Math.ceil(targetKva);
       document.getElementById('res-ups').innerText = `${recommendedUps} kVA`;
 
-      // 2. DC Bus Setup
       const dcVoltage = seriesBatteries * 12;
       document.getElementById('res-dc').innerText = `${dcVoltage} V`;
 
-      // 3. Real Chemistry Target Ah Calculation
-      const batteryDrawWatts = (load / eff) * factor; // Total pull from batteries
+      const batteryDrawWatts = (load / eff) * factor; 
       const energyRequiredWh = batteryDrawWatts * hours;
       const dischargeEff = getDischargeEfficiency(hours);
       
-      // Inflate the required Ah to account for fast-discharge limits
       const realRequiredEnergyWh = energyRequiredWh / dischargeEff; 
       const realRequiredAh = realRequiredEnergyWh / dcVoltage;
       
       document.getElementById('res-target').innerText = `${realRequiredAh.toFixed(1)} Ah`;
 
-      // 4. Generate Battery Options
       let validOptions = [];
-      const totalCellsInString = seriesBatteries * 6; // 6 cells per 12V battery
+      const totalCellsInString = seriesBatteries * 6; 
 
       standardSizes.forEach(size => {
         const strings = Math.ceil(realRequiredAh / size);
@@ -189,7 +194,6 @@
           const totalAh = size * strings;
           const totalBatteries = strings * seriesBatteries;
           
-          // Calculate Watts per Cell to prove safety
           const totalCellsSystem = totalCellsInString * strings;
           const wattsPerCell = batteryDrawWatts / totalCellsSystem;
 
@@ -197,17 +201,14 @@
         }
       });
 
-      // Sort by closest match to required capacity
       validOptions.sort((a, b) => a.totalAh - b.totalAh);
       const topOptions = validOptions.slice(0, 6);
 
-      // Render the options HTML
       const optionsContainer = document.getElementById('battery-options');
       optionsContainer.innerHTML = ''; 
 
       topOptions.forEach(opt => {
         const stringText = opt.strings === 1 ? 'String' : 'Strings';
-        // A general safety rule: if drawing > 15W per cell, it's a very harsh load
         const safetyClass = opt.wattsPerCell < 14 ? 'safe' : 'warn';
         const safetyText = opt.wattsPerCell < 14 ? 'Safe Load' : 'High Load';
 
@@ -224,7 +225,6 @@
         optionsContainer.innerHTML += html;
       });
 
-      // 5. Update Chart Data
       const chartData = [];
       for(let i = 1; i <= 10; i++) {
         let effCurve = getDischargeEfficiency(i);
