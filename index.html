@@ -47,7 +47,7 @@
         <label>Backup Time (Hours)</label>
         <input type="number" id="hours" value="3" step="0.5" oninput="calculate()">
       </div>
-      <div class="results-grid">
+      <div class="results-grid" style="grid-template-columns: 1fr 1fr 1fr;">
         <div class="input-group">
           <label>Power Factor</label>
           <input type="number" id="pf" value="0.9" step="0.1" oninput="calculate()">
@@ -55,10 +55,6 @@
         <div class="input-group">
           <label>UPS Eff.</label>
           <input type="number" id="eff" value="0.9" step="0.1" oninput="calculate()">
-        </div>
-        <div class="input-group">
-          <label>Batts in Series</label>
-          <input type="number" id="series" value="12" oninput="calculate()">
         </div>
         <div class="input-group">
           <label>Margin Factor</label>
@@ -84,12 +80,12 @@
           <div class="result-value" id="res-strings">1</div>
         </div>
         <div class="result-box">
-          <div class="result-label">Total Batteries</div>
-          <div class="result-value" id="res-total">12</div>
+          <div class="result-label">Series Batteries</div>
+          <div class="result-value" id="res-series">2</div>
         </div>
         <div class="result-box">
-          <div class="result-label">Est. Budget (LKR)</div>
-          <div class="result-value" id="res-cost">Rs 187,200</div>
+          <div class="result-label">Total Batteries</div>
+          <div class="result-value" id="res-total">2</div>
         </div>
       </div>
     </div>
@@ -105,7 +101,6 @@
   <script>
     const standardSizes = [7, 9, 12, 18, 26, 40, 65, 100, 120, 150, 200];
     const standardUpsKva = [1, 2, 3, 5, 6, 10, 15, 20, 30, 40, 60, 80, 100];
-    const costPerAh = 600;
     let myChart;
 
     function initChart() {
@@ -141,23 +136,30 @@
       const hours = parseFloat(document.getElementById('hours').value) || 0;
       const pf = parseFloat(document.getElementById('pf').value) || 0.9;
       const eff = parseFloat(document.getElementById('eff').value) || 0.9;
-      const series = parseInt(document.getElementById('series').value) || 12;
       const factor = parseFloat(document.getElementById('factor').value) || 1.1;
 
-      // 1. UPS Sizing Logic (Load / PF / 1000 = kVA) + 20% Headroom
+      // 1. Auto UPS Sizing Logic (Load / PF / 1000 = kVA) + 20% Headroom
       const rawKva = (load / pf) / 1000;
       const targetKva = rawKva * 1.2; 
       let recommendedUps = standardUpsKva.find(size => size >= targetKva) || Math.ceil(targetKva);
       
-      // Update UPS UI
       document.getElementById('res-ups').innerText = `${recommendedUps} kVA`;
 
-      // 2. Battery Sizing Logic
-      const dcVoltage = series * 12;
+      // 2. Auto Series Batteries Logic (DC Bus) based on UPS size
+      let seriesBatteries = 2; // Default for 1kVA
+      if (recommendedUps <= 1) { seriesBatteries = 2; }
+      else if (recommendedUps <= 3) { seriesBatteries = 4; }
+      else if (recommendedUps <= 10) { seriesBatteries = 16; }
+      else { seriesBatteries = 32; }
+
+      document.getElementById('res-series').innerText = seriesBatteries;
+
+      // 3. Battery Sizing Logic
+      const dcVoltage = seriesBatteries * 12;
       const adjustedLoad = (load / eff) * factor;
       const requiredAh = (adjustedLoad * hours) / dcVoltage;
 
-      // Auto Select Logic
+      // 4. Auto Select & Parallel Logic
       let strings = 1;
       let targetAh = requiredAh;
       if (targetAh > 200) {
@@ -166,14 +168,13 @@
       }
       let selectedAh = standardSizes.find(size => size >= targetAh) || 200;
 
-      // Update Battery Outputs
-      const totalBatteries = series * strings;
+      // 5. Update UI
+      const totalBatteries = seriesBatteries * strings;
       document.getElementById('res-ah').innerText = `${selectedAh} Ah`;
       document.getElementById('res-strings').innerText = strings;
       document.getElementById('res-total').innerText = totalBatteries;
-      document.getElementById('res-cost').innerText = `Rs ${(selectedAh * costPerAh * totalBatteries).toLocaleString()}`;
 
-      // Update Chart Data (1 to 10 hours)
+      // 6. Update Chart Data
       const chartData = [];
       for(let i = 1; i <= 10; i++) {
         chartData.push((adjustedLoad * i) / dcVoltage);
@@ -182,7 +183,7 @@
       myChart.update();
     }
 
-    // Initialize everything when the page loads
+    // Initialize on load
     window.onload = () => {
       initChart();
       calculate();
