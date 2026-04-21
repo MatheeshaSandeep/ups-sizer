@@ -20,20 +20,27 @@
     label { display: block; font-size: 0.9rem; font-weight: 500; margin-bottom: 5px; color: #475569; }
     input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
     input:focus { outline: none; border-color: var(--primary); }
-    .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
     .result-box { background: #f1f5f9; padding: 15px; border-radius: 8px; text-align: center; }
-    .result-box.highlight { background: #e0f2fe; border: 1px solid var(--primary); }
     .result-box.ups-highlight { background: #fef3c7; border: 1px solid var(--accent); grid-column: span 2; }
     .result-value { font-size: 1.5rem; font-weight: bold; color: var(--primary); margin-top: 5px; }
     .result-box.ups-highlight .result-value { color: #d97706; font-size: 1.8rem; }
     .result-label { font-size: 0.8rem; color: #64748b; font-weight: 600; text-transform: uppercase; }
+    
+    /* Styles for the new options list */
+    .options-list { display: flex; flex-direction: column; gap: 10px; }
+    .option-card { background: #e0f2fe; border: 1px solid var(--primary); padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .option-main { font-weight: bold; color: var(--primary); font-size: 1.1rem; }
+    .option-sub { font-size: 0.85rem; color: #475569; margin-top: 2px; }
+    .option-total { background: #0ea5e9; color: white; padding: 6px 12px; border-radius: 20px; font-size: 0.9rem; font-weight: bold; }
+    
     .chart-container { position: relative; height: 250px; width: 100%; mt-4; }
   </style>
 </head>
 <body>
 
   <header>
-    <h1>UPS System Sizer</h1>
+    <h1>Must UPS System Sizer</h1>
   </header>
 
   <div class="container">
@@ -57,37 +64,34 @@
           <input type="number" id="eff" value="0.9" step="0.1" oninput="calculate()">
         </div>
         <div class="input-group">
-          <label>Margin Factor</label>
+          <label>Margin</label>
           <input type="number" id="factor" value="1.1" step="0.1" oninput="calculate()">
         </div>
       </div>
     </div>
 
     <div class="card">
-      <h2>Recommended Configuration</h2>
-      <div class="results-grid">
+      <h2>Inverter Setup</h2>
+      <div class="results-grid" style="margin-bottom: 0;">
         <div class="result-box ups-highlight">
           <div class="result-label">Minimum Required UPS</div>
           <div class="result-value" id="res-ups">1 kVA</div>
-        </div>
-        
-        <div class="result-box highlight">
-          <div class="result-label">Battery Size</div>
-          <div class="result-value" id="res-ah">26 Ah</div>
-        </div>
-        <div class="result-box highlight">
-          <div class="result-label">Parallel Strings</div>
-          <div class="result-value" id="res-strings">1</div>
         </div>
         <div class="result-box">
           <div class="result-label">Series Batteries</div>
           <div class="result-value" id="res-series">2</div>
         </div>
         <div class="result-box">
-          <div class="result-label">Total Batteries</div>
-          <div class="result-value" id="res-total">2</div>
+          <div class="result-label">Exact Target Ah</div>
+          <div class="result-value" id="res-target">26 Ah</div>
         </div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Battery Options (Top 6)</h2>
+      <div class="options-list" id="battery-options">
+        </div>
     </div>
 
     <div class="card">
@@ -125,7 +129,7 @@
           plugins: { legend: { display: false } },
           scales: {
             x: { title: { display: true, text: 'Hours' } },
-            y: { title: { display: true, text: 'Amp-Hours (Ah)' }, beginAtZero: true }
+            y: { title: { display: true, text: 'Target Ah' }, beginAtZero: true }
           }
         }
       });
@@ -138,43 +142,61 @@
       const eff = parseFloat(document.getElementById('eff').value) || 0.9;
       const factor = parseFloat(document.getElementById('factor').value) || 1.1;
 
-      // 1. Auto UPS Sizing Logic (Load / PF / 1000 = kVA) + 20% Headroom
+      // 1. Auto UPS Sizing
       const rawKva = (load / pf) / 1000;
       const targetKva = rawKva * 1.2; 
       let recommendedUps = standardUpsKva.find(size => size >= targetKva) || Math.ceil(targetKva);
-      
       document.getElementById('res-ups').innerText = `${recommendedUps} kVA`;
 
-      // 2. Auto Series Batteries Logic (DC Bus) based on UPS size
-      let seriesBatteries = 2; // Default for 1kVA
+      // 2. Auto Series Batteries Logic
+      let seriesBatteries = 2; 
       if (recommendedUps <= 1) { seriesBatteries = 2; }
       else if (recommendedUps <= 3) { seriesBatteries = 4; }
       else if (recommendedUps <= 10) { seriesBatteries = 16; }
       else { seriesBatteries = 32; }
-
       document.getElementById('res-series').innerText = seriesBatteries;
 
-      // 3. Battery Sizing Logic
+      // 3. Exact Target Ah Calculation
       const dcVoltage = seriesBatteries * 12;
       const adjustedLoad = (load / eff) * factor;
       const requiredAh = (adjustedLoad * hours) / dcVoltage;
+      document.getElementById('res-target').innerText = `${requiredAh.toFixed(1)} Ah`;
 
-      // 4. Auto Select & Parallel Logic
-      let strings = 1;
-      let targetAh = requiredAh;
-      if (targetAh > 200) {
-        strings = Math.ceil(targetAh / 200);
-        targetAh = targetAh / strings;
-      }
-      let selectedAh = standardSizes.find(size => size >= targetAh) || 200;
+      // 4. Generate Battery Options
+      let validOptions = [];
+      
+      standardSizes.forEach(size => {
+        const strings = Math.ceil(requiredAh / size);
+        if (strings <= 6) { // Filter out silly setups like 10 strings
+          const totalAh = size * strings;
+          const totalBatteries = strings * seriesBatteries;
+          validOptions.push({ size, strings, totalAh, totalBatteries });
+        }
+      });
 
-      // 5. Update UI
-      const totalBatteries = seriesBatteries * strings;
-      document.getElementById('res-ah').innerText = `${selectedAh} Ah`;
-      document.getElementById('res-strings').innerText = strings;
-      document.getElementById('res-total').innerText = totalBatteries;
+      // Sort by closest match to required capacity, take top 6
+      validOptions.sort((a, b) => a.totalAh - b.totalAh);
+      const topOptions = validOptions.slice(0, 6);
 
-      // 6. Update Chart Data
+      // Render the options HTML
+      const optionsContainer = document.getElementById('battery-options');
+      optionsContainer.innerHTML = ''; // Clear previous
+
+      topOptions.forEach(opt => {
+        const stringText = opt.strings === 1 ? 'String' : 'Strings';
+        const html = `
+          <div class="option-card">
+            <div>
+              <div class="option-main">${opt.size}Ah x ${opt.strings} ${stringText}</div>
+              <div class="option-sub">Provides ${opt.totalAh}Ah System Capacity</div>
+            </div>
+            <div class="option-total">${opt.totalBatteries} Batts</div>
+          </div>
+        `;
+        optionsContainer.innerHTML += html;
+      });
+
+      // 5. Update Chart Data
       const chartData = [];
       for(let i = 1; i <= 10; i++) {
         chartData.push((adjustedLoad * i) / dcVoltage);
@@ -188,10 +210,6 @@
       initChart();
       calculate();
     };
-
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
-    }
   </script>
 </body>
 </html>
