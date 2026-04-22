@@ -1,24 +1,34 @@
-const CACHE_NAME = 'ups-sizer-v2';
-const urlsToCache = [
-  './',
-  './index.html',
-  './manifest.json',
-  'https://cdn.jsdelivr.net/npm/chart.js'
-];
+async function generateInterlinkProposal() {
+    // 1. You can add a visual loading state here if you want
+    alert('Sending data to automation pipeline...');
 
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
-  );
-});
+    // 2. VERY IMPORTANT: Change these IDs to match YOUR actual HTML elements
+    const clientName = document.getElementById('YOUR_CLIENT_NAME_INPUT_ID').value;
+    const finalKva = document.getElementById('YOUR_KVA_INPUT_ID').value; 
+    const runtimeMins = document.getElementById('YOUR_RUNTIME_INPUT_ID').value;
+    const upsModel = document.getElementById('YOUR_RECOMMENDED_MODEL_ID').innerText;
 
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Return cached version if found, otherwise fetch from network
-        return response || fetch(event.request);
-      })
-  );
-});
+    // 3. Paste your Make.com Webhook URL here
+    const makeWebhookUrl = 'PASTE_YOUR_MAKE_WEBHOOK_URL_HERE';
+
+    try {
+        const response = await fetch(makeWebhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_name: clientName,
+                total_kva: finalKva,
+                battery_runtime_mins: runtimeMins,
+                recommended_model: upsModel
+            })
+        });
+
+        if (response.ok) {
+            alert('Success! The PDF is in your inbox.');
+        } else {
+            alert('Error connecting to Make.com');
+        }
+    } catch (error) {
+        alert('Network error. Check connection.');
+    }
+}
