@@ -9,7 +9,7 @@ async function generateInterlinkProposal() {
     const upsModel = document.getElementById('YOUR_RECOMMENDED_MODEL_ID').innerText;
 
     // 3. Paste your Make.com Webhook URL here
-    const makeWebhookUrl = 'PASTE_YOUR_MAKE_WEBHOOK_URL_HERE';
+    const makeWebhookUrl = 'https://hook.eu1.make.com/75tjm16jqkrwrbfqk92178bb1nne7rmd';
 
     try {
         const response = await fetch(makeWebhookUrl, {
