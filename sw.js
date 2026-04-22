@@ -3,7 +3,7 @@ async function generateInterlinkProposal() {
     alert('Sending data to automation pipeline...');
 
     // 2. VERY IMPORTANT: Change these IDs to match YOUR actual HTML elements
-    const clientName = document.getElementById('YOUR_CLIENT_NAME_INPUT_ID').value;
+    const clientName = prompt("Enter the Client or Company Name for this proposal:") || "Valued Client";
     const finalKva = document.getElementById('YOUR_KVA_INPUT_ID').value; 
     const runtimeMins = document.getElementById('YOUR_RUNTIME_INPUT_ID').value;
     const upsModel = document.getElementById('YOUR_RECOMMENDED_MODEL_ID').innerText;
